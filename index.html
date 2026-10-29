@@ -338,9 +338,9 @@
             <div id="workspace-size-widget" class="flex items-center gap-1 bg-[#141418] border border-gray-700 rounded px-1.5 py-0.5 shadow shrink-0" title="Active Layer dimensions (X Y Z)">
 			
                 <span class="text-[9px] font-mono text-gray-400 font-bold uppercase hidden sm:inline">Size</span>
-                <input type="number" id="input-size-x" min="1" max="256" value="20" class="size-input">
-                <input type="number" id="input-size-y" min="1" max="256" value="20" class="size-input">
-                <input type="number" id="input-size-z" min="1" max="256" value="20" class="size-input">
+                <input type="number" id="input-size-x" min="1" max="256" value="40" class="size-input">
+                <input type="number" id="input-size-y" min="1" max="256" value="40" class="size-input">
+                <input type="number" id="input-size-z" min="1" max="256" value="40" class="size-input">
             </div>
 
             <div class="flex items-center gap-1 shrink-0">
@@ -471,7 +471,7 @@
             <button id="btn-toggle-floor-plane" class="grid-toggle-btn active !p-1" title="Toggle Floor Plane">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>
             </button>
-            <span class="text-[9px] font-mono text-gray-300 pl-1 border-l border-gray-700" id="model-dimension-badge">20x20x20</span>
+            <span class="text-[9px] font-mono text-gray-300 pl-1 border-l border-gray-700" id="model-dimension-badge">40x40x40</span>
         </div>
 
     </div>
@@ -1239,7 +1239,7 @@
                 name: 'Default',
                 visible: true,
                 locked: false,
-                size: { x: 20, y: 20, z: 20 },
+                size: { x: 40, y: 40, z: 40 },
                 offset: { x: 0, y: 0, z: 0 },
                 rotation: { x: 0, y: 0, z: 0 },
                 scale: { x: 1, y: 1, z: 1 }
@@ -2235,29 +2235,7 @@ function setupSkyControls() {
         AppState.scene.background = new THREE.Color(0x282828);
 
         const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-		
-        const createSafeRenderer = () => {
-            const configs = [
-                { antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" },
-                { antialias: false, preserveDrawingBuffer: true, powerPreference: "default" },
-                { antialias: false, preserveDrawingBuffer: false }
-            ];
-            for (const cfg of configs) {
-                try {
-                    return new THREE.WebGLRenderer(cfg);
-                } catch (e) {
-                    console.warn("Retrying WebGLRenderer with fallback config:", e);
-                }
-            }
-            return null;
-        };
-
-        AppState.renderer = createSafeRenderer();
-        if (!AppState.renderer) {
-            updateBootProgress(100, "WebGL Context Error: Please enable Hardware Acceleration in Chrome Settings or restart browser.", false);
-            return;
-        }
-		
+        AppState.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
         AppState.renderer.setSize(window.innerWidth, window.innerHeight);
         AppState.renderer.setPixelRatio(pixelRatio);
         AppState.renderer.shadowMap.enabled = AppState.sampleOptions.shadow;
@@ -2590,9 +2568,9 @@ function setupSkyControls() {
     // Đảm bảo mọi Layer luôn có đủ trường size, offset, rotation, scale độc lập
     function ensureLayerProperties(layer, fallbackSize = null) {
         if (!layer) return;
-        const defSize = fallbackSize || (AppState.model && AppState.model.size) || { x: 20, y: 20, z: 20 };
+        const defSize = fallbackSize || (AppState.model && AppState.model.size) || { x: 40, y: 40, z: 40 };
         if (!layer.size) {
-            layer.size = { x: defSize.x || 20, y: defSize.y || 20, z: defSize.z || 20 };
+            layer.size = { x: defSize.x || 40, y: defSize.y || 40, z: defSize.z || 40 };
         }
         if (!layer.offset) layer.offset = { x: 0, y: 0, z: 0 };
         if (!layer.rotation) layer.rotation = { x: 0, y: 0, z: 0 };
@@ -2606,7 +2584,7 @@ function setupSkyControls() {
             ensureLayerProperties(cur);
             return cur.size;
         }
-        return (AppState.model && AppState.model.size) ? AppState.model.size : { x: 20, y: 20, z: 20 };
+        return (AppState.model && AppState.model.size) ? AppState.model.size : { x: 40, y: 40, z: 40 };
     }
 
     // Tạo Grid tổng với trục tọa độ trung tâm đậm chuẩn MagicaVoxel khi ở Transform Layer Mode
@@ -10062,36 +10040,6 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
         }
     }
 
-    function expandBootCubeToDefaultPreview() {
-        if (!AppState.isBootWarmupCube || !AppState.model) return;
-        AppState.isBootWarmupCube = false;
-
-        const sx = 20, sy = 20, sz = 20;
-        const fullVoxels = [];
-        for (let x = 0; x < sx; x++) {
-            for (let y = 0; y < sy; y++) {
-                for (let z = 0; z < sz; z++) {
-                    fullVoxels.push({ x, y, z, i: 1, l: 1 });
-                }
-            }
-        }
-
-        AppState.model.size = { x: sx, y: sy, z: sz };
-        AppState.model.voxels = fullVoxels;
-        if (AppState.layers && AppState.layers[0]) {
-            AppState.layers[0].size = { x: sx, y: sy, z: sz };
-        }
-        AppState.usedIndices.add(1);
-
-        syncActiveLayerWorkspaceUI();
-        rebuildMesh();
-        renderLayerUI();
-        buildPaletteUI();
-        centerCamera(AppState.model.size);
-        resetHistory();
-        AppState.needsVoxelTextureUpdate = true;
-    }
-
     function initDefaultProject() {
         const defaultPalette = new Uint32Array(257);
         for (let i = 1; i <= 256; i++) {
@@ -10103,9 +10051,16 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
         defaultPalette[4] = 0x10b981;
         defaultPalette[5] = 0xf59e0b;
 
-        // Khởi tạo 1x1x1 lúc đầu để Warm-up GPU và biên dịch Shader siêu tốc không tốn CPU
-        const sx = 1, sy = 1, sz = 1;
-        const initialVoxels = [{ x: 0, y: 0, z: 0, i: 1, l: 1 }];
+        const sx = 40, sy = 40, sz = 40;
+        const initialVoxels = [];
+		
+        for (let x = 0; x < sx; x++) {
+            for (let y = 0; y < sy; y++) {
+                for (let z = 0; z < sz; z++) {
+                    initialVoxels.push({ x, y, z, i: 1, l: 1 });
+                }
+            }
+        }
 
         const defaultModel = {
             size: { x: sx, y: sy, z: sz },
@@ -10115,11 +10070,10 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
             customSettings: {}
         };
 
-        AppState.isBootWarmupCube = true;
         AppState.currentFileName = 'project.vox';
         updateProjectFileNameBadge('project.vox');
         loadModel(defaultModel);
-        centerCamera({ x: 20, y: 20, z: 20 });
+        centerCamera(defaultModel.size);
     }
 
     async function loadProjectFromCache() {
@@ -11519,176 +11473,6 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
                     return exp(-(absorb + vec3(volAtten)) * dt);
                 }
 
-                // Hàm dò tia khúc xạ & phản xạ toàn phần (TIR) bên trong thể tích Glass / Blend
-                // Tách thành hàm độc lập giúp trình biên dịch GPU không phải inline lặp lại trong main(), giảm 70% thời gian compile shader
-                void marchDielectricVolume(
-                    int startMatIdx, float typeMin, float typeMax,
-                    float ior, float roughness, float transparency, float startDensNorm, vec3 startSrgb,
-                    vec3 hitPos, vec3 N, vec3 rdIn, ivec3 gridDims, inout uint seed,
-                    out vec3 transAcc, out float distTraveled,
-                    out vec3 nextRo, out vec3 nextRd,
-                    out bool hasPendingHit, out vec3 pendingHitPos, out vec3 pendingHitNormal, out vec4 pendingHitColor
-                ) {
-                    vec3 refr = (ior <= 1.0005) ? rdIn : refract(rdIn, N, 1.0 / ior);
-                    if (dot(refr, refr) < 0.0001) refr = reflect(rdIn, N);
-                    if (roughness > 0.001) {
-                        vec3 roughRefr = normalize(refr + sampleSphere(seed) * (roughness * roughness * 0.25));
-                        if (dot(roughRefr, -N) > 0.001) refr = roughRefr;
-                    }
-
-                    int curVolIdx = startMatIdx;
-                    float curDensityNorm = startDensNorm;
-                    vec3 curSrgb = startSrgb;
-                    transAcc = vec3((transparency >= 0.5) ? transparency : 1.0);
-
-                    vec3 curPosIn = hitPos - N * 0.002;
-                    vec3 boxMinIn = vec3(-uGridSize.x * 0.5, 0.0, -uGridSize.y * 0.5);
-                    vec3 localPosIn = vec3(curPosIn.x - boxMinIn.x, curPosIn.z - boxMinIn.z, curPosIn.y - boxMinIn.y);
-                    ivec3 mapPosIn = clamp(ivec3(floor(localPosIn)), ivec3(0), gridDims - ivec3(1));
-
-                    vec3 rdGridIn = vec3(refr.x, refr.z, refr.y);
-                    vec3 deltaDistIn = abs(vec3(1.0) / max(abs(rdGridIn), vec3(0.00001)));
-                    vec3 raySignIn = sign(rdGridIn);
-                    raySignIn = vec3(raySignIn.x == 0.0 ? 1.0 : raySignIn.x, raySignIn.y == 0.0 ? 1.0 : raySignIn.y, raySignIn.z == 0.0 ? 1.0 : raySignIn.z);
-                    ivec3 rayStepIn = ivec3(raySignIn);
-                    vec3 sideDistIn = (raySignIn * (vec3(mapPosIn) - localPosIn) + (raySignIn * 0.5) + 0.5) * deltaDistIn;
-
-                    distTraveled = 0.0;
-                    int internalBounces = 0;
-                    vec3 outNorm = -N;
-                    vec3 refrOut = rdIn;
-                    bool hitFloorInside = false;
-                    bool hitSolidInside = false;
-                    vec4 solidHitVoxel = vec4(0.0);
-                    vec3 solidHitNormal = vec3(0.0, 1.0, 0.0);
-                    vec3 solidHitPos = vec3(0.0);
-
-                    int maxVolSteps = min(96, max(gridDims.x, max(gridDims.y, gridDims.z)) + 16);
-                    for (int s = 0; s < 96; s++) {
-                        if (s >= maxVolSteps) break;
-                        vec3 maskIn = step(sideDistIn.xyz, sideDistIn.yzx) * step(sideDistIn.xyz, sideDistIn.zxy);
-                        float minS = min(min(sideDistIn.x, sideDistIn.y), sideDistIn.z);
-                        float dtStep = max(0.0, minS);
-
-                        if (uShowFloorPlane > 0.5 && refr.y < -0.0001 && curPosIn.y > 0.0) {
-                            float tFl = -curPosIn.y / refr.y;
-                            if (tFl >= 0.0 && tFl <= dtStep + 0.0005) {
-                                transAcc *= evalGlassSegmentTransmittance(curSrgb, tFl, curDensityNorm);
-                                distTraveled += tFl;
-                                curPosIn += refr * tFl;
-                                hitFloorInside = true;
-                                break;
-                            }
-                        }
-
-                        transAcc *= evalGlassSegmentTransmittance(curSrgb, dtStep, curDensityNorm);
-                        distTraveled += dtStep;
-                        curPosIn += refr * dtStep;
-                        sideDistIn -= vec3(dtStep);
-
-                        ivec3 nextMapPos = mapPosIn + ivec3(maskIn) * rayStepIn;
-                        vec3 stepG = vec3(float(rayStepIn.x), float(rayStepIn.y), float(rayStepIn.z));
-                        vec3 nG = maskIn * stepG;
-                        vec3 stepNorm = normalize(vec3(nG.x, nG.z, nG.y));
-
-                        if (nextMapPos.z < 0 && uShowFloorPlane > 0.5 && refr.y < 0.0) {
-                            hitFloorInside = true;
-                            break;
-                        }
-
-                        bool nextIsSameType = false;
-                        if (nextMapPos.x >= 0 && nextMapPos.x < gridDims.x &&
-                            nextMapPos.y >= 0 && nextMapPos.y < gridDims.y &&
-                            nextMapPos.z >= 0 && nextMapPos.z < gridDims.z) {
-                            vec4 vNext = texelFetch(tVoxelGrid, nextMapPos, 0);
-                            if (vNext.a > 0.002) {
-                                int nextIdx = int(floor(vNext.a * 255.0 + 0.5));
-                                if (nextIdx == curVolIdx) {
-                                    nextIsSameType = true;
-                                } else {
-                                    vec4 m0Next = texelFetch(tMaterialLUT, ivec2(nextIdx, 0), 0);
-                                    if (m0Next.r > typeMin && m0Next.r < typeMax) {
-                                        nextIsSameType = true;
-                                        curVolIdx = nextIdx;
-                                        curSrgb = vNext.rgb;
-                                        curDensityNorm = clamp(texelFetch(tMaterialLUT, ivec2(nextIdx, 1), 0).r / 100.0, 0.0, 1.0);
-                                    } else if (m0Next.r < 1.5 || m0Next.r > 4.5) {
-                                        hitSolidInside = true;
-                                        solidHitVoxel = vNext;
-                                        solidHitNormal = -stepNorm;
-                                        solidHitPos = curPosIn - stepNorm * 0.002;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (nextIsSameType) {
-                            mapPosIn = nextMapPos;
-                            sideDistIn += maskIn * deltaDistIn;
-                        } else {
-                            outNorm = stepNorm;
-                            if (ior <= 1.0005) {
-                                refrOut = refr;
-                                break;
-                            }
-
-                            float cosIn = clamp(dot(-refr, -outNorm), 0.0, 1.0);
-                            float tirFresnel = evalDielectricFresnel(cosIn, 1.0 / ior);
-
-                            if ((tirFresnel >= 0.999 || rand(seed) < tirFresnel) && internalBounces < 5) {
-                                internalBounces++;
-                                refr = reflect(refr, -outNorm);
-                                if (roughness > 0.001) {
-                                    vec3 rRefl = normalize(refr + sampleSphere(seed) * (roughness * roughness * 0.25));
-                                    if (dot(rRefl, -outNorm) > 0.001) refr = rRefl;
-                                }
-                                curPosIn -= outNorm * 0.001;
-                                rdGridIn = vec3(refr.x, refr.z, refr.y);
-                                deltaDistIn = abs(vec3(1.0) / max(abs(rdGridIn), vec3(0.00001)));
-                                raySignIn = sign(rdGridIn);
-                                raySignIn = vec3(raySignIn.x == 0.0 ? 1.0 : raySignIn.x, raySignIn.y == 0.0 ? 1.0 : raySignIn.y, raySignIn.z == 0.0 ? 1.0 : raySignIn.z);
-                                rayStepIn = ivec3(raySignIn);
-                                localPosIn = vec3(curPosIn.x - boxMinIn.x, curPosIn.z - boxMinIn.z, curPosIn.y - boxMinIn.y);
-                                sideDistIn = (raySignIn * (vec3(mapPosIn) - localPosIn) + (raySignIn * 0.5) + 0.5) * deltaDistIn;
-                            } else {
-                                vec3 candidateOut = refract(refr, -outNorm, ior);
-                                refrOut = (dot(candidateOut, candidateOut) < 0.0001) ? refr : normalize(candidateOut);
-                                if (roughness > 0.001) {
-                                    vec3 rOut = normalize(refrOut + sampleSphere(seed) * (roughness * roughness * 0.20));
-                                    if (dot(rOut, outNorm) > 0.001) refrOut = rOut;
-                                }
-                                break;
-                            }
-                        }
-                    }
-
-                    hasPendingHit = false;
-                    pendingHitPos = vec3(0.0);
-                    pendingHitNormal = vec3(0.0, 1.0, 0.0);
-                    pendingHitColor = vec4(0.0);
-
-                    if (hitFloorInside) {
-                        hasPendingHit = true;
-                        pendingHitPos = vec3(curPosIn.x, 0.002, curPosIn.z);
-                        pendingHitNormal = vec3(0.0, 1.0, 0.0);
-                        vec3 floorBaseCol = (uSkyEnabled > 0.5) ? uSkyGround : vec3(0.08, 0.08, 0.09);
-                        pendingHitColor = vec4(floorBaseCol, 0.0);
-                        nextRo = pendingHitPos;
-                        nextRd = refr;
-                    } else if (hitSolidInside) {
-                        hasPendingHit = true;
-                        pendingHitPos = solidHitPos;
-                        pendingHitNormal = solidHitNormal;
-                        pendingHitColor = solidHitVoxel;
-                        nextRo = pendingHitPos;
-                        nextRd = refr;
-                    } else {
-                        nextRo = curPosIn + outNorm * 0.003 + refrOut * 0.002;
-                        nextRd = refrOut;
-                    }
-                }
-
                 vec3 shadowTraversal(vec3 ro, vec3 rd, float maxDist, inout uint seed) {
                     if (uShowFloorPlane > 0.5 && rd.y < -0.0001) {
                         float tFloor = -ro.y / rd.y;
@@ -12718,14 +12502,25 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 			
-                          } else if (isGlass) {
+                           } else if (isGlass) {
                                 float transparency = matTrans;
                                 float roughness = matRough;
                                 float ior = max(1.0, matIOR);
 
                                 vec3 N = (dot(rd, hitNormal) < 0.0) ? hitNormal : -hitNormal;
                                 float cosThetaI = clamp(dot(-rd, N), 0.0, 1.0);
-                                float fresnel = evalDielectricFresnel(cosThetaI, ior);
+                                float sinThetaTSq = (1.0 / (ior * ior)) * (1.0 - cosThetaI * cosThetaI);
+                                float fresnel = 0.0;
+                                if (ior > 1.0005) {
+                                    if (sinThetaTSq >= 1.0) {
+                                        fresnel = 1.0;
+                                    } else {
+                                        float cosThetaT = sqrt(max(0.0, 1.0 - sinThetaTSq));
+                                        float Rs = (cosThetaI - ior * cosThetaT) / max(0.0001, cosThetaI + ior * cosThetaT);
+                                        float Rp = (ior * cosThetaI - cosThetaT) / max(0.0001, ior * cosThetaI + cosThetaT);
+                                        fresnel = clamp(0.5 * (Rs * Rs + Rp * Rp), 0.0, 1.0);
+                                    }
+                                }
 
                                 if (rand(seed) < fresnel) {
                                     if (!foundSolidPrimary) {
@@ -12741,24 +12536,179 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
                                     ro = hitPos + N * 0.002;
                                     rd = refl;
                                 } else if (transparency > 0.005 && (transparency >= 0.5 || rand(seed) < transparency)) {
+                                    vec3 refr = (ior <= 1.0005) ? rd : refract(rd, N, 1.0 / ior);
+                                    if (dot(refr, refr) < 0.0001) refr = reflect(rd, N);
+                                    if (roughness > 0.001) {
+                                        vec3 roughRefr = normalize(refr + sampleSphere(seed) * (roughness * roughness * 0.25));
+                                        if (dot(roughRefr, -N) > 0.001) refr = roughRefr;
+                                    }
                                     if (roughness > 0.25) isSpecularPath = false;
-                                    vec3 glassTransAcc;
-                                    float dGlass;
-                                    vec3 nextRo, nextRd;
-                                    marchDielectricVolume(
-                                        matIdx, 1.5, 2.5,
-                                        ior, roughness, transparency, clamp(matDensity / 100.0, 0.0, 1.0), hitColor.rgb,
-                                        hitPos, N, rd, gridDims, seed,
-                                        glassTransAcc, dGlass, nextRo, nextRd,
-                                        hasPendingHit, pendingHitPos, pendingHitNormal, pendingHitColor
-                                    );
+
+                                    int curGlassIdx = matIdx;
+                                    float curDensityNorm = clamp(matDensity / 100.0, 0.0, 1.0);
+                                    vec3 curSrgb = hitColor.rgb;
+                                    vec3 curAlbedo = albedo;
+                                    vec3 glassTransAcc = vec3((transparency >= 0.5) ? transparency : 1.0);
+
+                                    vec3 curPosIn = hitPos - N * 0.002;
+                                    vec3 boxMinIn = vec3(-uGridSize.x * 0.5, 0.0, -uGridSize.y * 0.5);
+                                    vec3 localPosIn = vec3(curPosIn.x - boxMinIn.x, curPosIn.z - boxMinIn.z, curPosIn.y - boxMinIn.y);
+                                    ivec3 mapPosIn = clamp(ivec3(floor(localPosIn)), ivec3(0), gridDims - ivec3(1));
+
+                                    vec3 rdGridIn = vec3(refr.x, refr.z, refr.y);
+                                    vec3 deltaDistIn = abs(vec3(1.0) / max(abs(rdGridIn), vec3(0.00001)));
+                                    vec3 raySignIn = sign(rdGridIn);
+                                    raySignIn = vec3(raySignIn.x == 0.0 ? 1.0 : raySignIn.x, raySignIn.y == 0.0 ? 1.0 : raySignIn.y, raySignIn.z == 0.0 ? 1.0 : raySignIn.z);
+                                    ivec3 rayStepIn = ivec3(raySignIn);
+                                    vec3 sideDistIn = (raySignIn * (vec3(mapPosIn) - localPosIn) + (raySignIn * 0.5) + 0.5) * deltaDistIn;
+
+                                    vec3 lastMask = abs(vec3(N.x, N.z, N.y));
+                                    float dGlass = 0.0;
+                                    int internalBounces = 0;
+                                    vec3 outNorm = -N;
+                                    vec3 refrOut = rd;
+                                    bool hitFloorInside = false;
+                                    bool hitSolidInside = false;
+                                    vec4 solidHitVoxel = vec4(0.0);
+                                    vec3 solidHitNormal = vec3(0.0, 1.0, 0.0);
+                                    vec3 solidHitPos = vec3(0.0);
+
+                                    int maxGlassSteps = min(160, max(gridDims.x, max(gridDims.y, gridDims.z)) + 32);
+                                    for (int s = 0; s < maxGlassSteps; s++) {
+                                        vec3 maskIn = step(sideDistIn.xyz, sideDistIn.yzx) * step(sideDistIn.xyz, sideDistIn.zxy);
+                                        float minS = min(min(sideDistIn.x, sideDistIn.y), sideDistIn.z);
+                                        float dtStep = max(0.0, minS);
+
+                                        if (uShowFloorPlane > 0.5 && refr.y < -0.0001 && curPosIn.y > 0.0) {
+                                            float tFl = -curPosIn.y / refr.y;
+                                            if (tFl >= 0.0 && tFl <= dtStep + 0.0005) {
+                                                glassTransAcc *= evalGlassSegmentTransmittance(curSrgb, tFl, curDensityNorm);
+                                                dGlass += tFl;
+                                                curPosIn += refr * tFl;
+                                                hitFloorInside = true;
+                                                break;
+                                            }
+                                        }
+
+                                        glassTransAcc *= evalGlassSegmentTransmittance(curSrgb, dtStep, curDensityNorm);
+                                        dGlass += dtStep;
+                                        curPosIn += refr * dtStep;
+                                        sideDistIn -= vec3(dtStep);
+
+                                        ivec3 nextMapPos = mapPosIn + ivec3(maskIn) * rayStepIn;
+                                        vec3 stepG = vec3(float(rayStepIn.x), float(rayStepIn.y), float(rayStepIn.z));
+                                        vec3 nG = maskIn * stepG;
+                                        vec3 stepNorm = normalize(vec3(nG.x, nG.z, nG.y));
+
+                                        if (nextMapPos.z < 0 && uShowFloorPlane > 0.5 && refr.y < 0.0) {
+                                            hitFloorInside = true;
+                                            break;
+                                        }
+
+                                        bool nextIsGlass = false;
+                                        if (nextMapPos.x >= 0 && nextMapPos.x < gridDims.x &&
+                                            nextMapPos.y >= 0 && nextMapPos.y < gridDims.y &&
+                                            nextMapPos.z >= 0 && nextMapPos.z < gridDims.z) {
+                                            vec4 vNext = texelFetch(tVoxelGrid, nextMapPos, 0);
+                                            if (vNext.a > 0.002) {
+                                                int nextIdx = int(floor(vNext.a * 255.0 + 0.5));
+                                                if (nextIdx == curGlassIdx) {
+                                                    nextIsGlass = true;
+                                                } else {
+                                                    vec4 m0Next = texelFetch(tMaterialLUT, ivec2(nextIdx, 0), 0);
+                                                    if (m0Next.r > 1.5 && m0Next.r < 2.5) {
+                                                        nextIsGlass = true;
+                                                        curGlassIdx = nextIdx;
+                                                        curSrgb = vNext.rgb;
+                                                        curAlbedo = pow(vNext.rgb, vec3(2.2));
+                                                        curDensityNorm = clamp(texelFetch(tMaterialLUT, ivec2(nextIdx, 1), 0).r / 100.0, 0.0, 1.0);
+                                                    } else if (m0Next.r < 1.5 || m0Next.r > 4.5) {
+                                                        hitSolidInside = true;
+                                                        solidHitVoxel = vNext;
+                                                        solidHitNormal = -stepNorm;
+                                                        solidHitPos = curPosIn - stepNorm * 0.002;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (nextIsGlass) {
+                                            mapPosIn = nextMapPos;
+                                            sideDistIn += maskIn * deltaDistIn;
+                                            lastMask = maskIn;
+                                        } else {
+                                            outNorm = stepNorm;
+                                            if (ior <= 1.0005) {
+                                                refrOut = refr;
+                                                break;
+                                            }
+
+                                            float cosIn = clamp(dot(-refr, -outNorm), 0.0, 1.0);
+                                            float sinOutSq = (ior * ior) * (1.0 - cosIn * cosIn);
+                                            float tirFresnel = 0.0;
+                                            if (sinOutSq >= 1.0) {
+                                                tirFresnel = 1.0;
+                                            } else {
+                                                float cosOut = sqrt(max(0.0, 1.0 - sinOutSq));
+                                                float RsOut = (ior * cosIn - cosOut) / max(0.0001, ior * cosIn + cosOut);
+                                                float RpOut = (cosIn - ior * cosOut) / max(0.0001, cosIn + ior * cosOut);
+                                                tirFresnel = clamp(0.5 * (RsOut * RsOut + RpOut * RpOut), 0.0, 1.0);
+                                            }
+
+                                            if ((tirFresnel >= 0.999 || rand(seed) < tirFresnel) && internalBounces < 6) {
+                                                internalBounces++;
+                                                refr = reflect(refr, -outNorm);
+                                                if (roughness > 0.001) {
+                                                    vec3 rRefl = normalize(refr + sampleSphere(seed) * (roughness * roughness * 0.25));
+                                                    if (dot(rRefl, -outNorm) > 0.001) refr = rRefl;
+                                                }
+                                                curPosIn -= outNorm * 0.001;
+                                                rdGridIn = vec3(refr.x, refr.z, refr.y);
+                                                deltaDistIn = abs(vec3(1.0) / max(abs(rdGridIn), vec3(0.00001)));
+                                                raySignIn = sign(rdGridIn);
+                                                raySignIn = vec3(raySignIn.x == 0.0 ? 1.0 : raySignIn.x, raySignIn.y == 0.0 ? 1.0 : raySignIn.y, raySignIn.z == 0.0 ? 1.0 : raySignIn.z);
+                                                rayStepIn = ivec3(raySignIn);
+                                                localPosIn = vec3(curPosIn.x - boxMinIn.x, curPosIn.z - boxMinIn.z, curPosIn.y - boxMinIn.y);
+                                                sideDistIn = (raySignIn * (vec3(mapPosIn) - localPosIn) + (raySignIn * 0.5) + 0.5) * deltaDistIn;
+                                                lastMask = maskIn;
+                                            } else {
+                                                vec3 candidateOut = refract(refr, -outNorm, ior);
+                                                refrOut = (dot(candidateOut, candidateOut) < 0.0001) ? refr : normalize(candidateOut);
+                                                if (roughness > 0.001) {
+                                                    vec3 rOut = normalize(refrOut + sampleSphere(seed) * (roughness * roughness * 0.20));
+                                                    if (dot(rOut, outNorm) > 0.001) refrOut = rOut;
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+
                                     throughput *= glassTransAcc;
                                     if (bounce == 0) {
                                         postFirstGlassThroughput = throughput;
                                     }
                                     totalRayDist += dGlass;
-                                    ro = nextRo;
-                                    rd = nextRd;
+
+                                    if (hitFloorInside) {
+                                        hasPendingHit = true;
+                                        pendingHitPos = vec3(curPosIn.x, 0.002, curPosIn.z);
+                                        pendingHitNormal = vec3(0.0, 1.0, 0.0);
+                                        vec3 floorBaseCol = (uSkyEnabled > 0.5) ? uSkyGround : vec3(0.08, 0.08, 0.09);
+                                        pendingHitColor = vec4(floorBaseCol, 0.0);
+                                        ro = pendingHitPos;
+                                        rd = refr;
+                                    } else if (hitSolidInside) {
+                                        hasPendingHit = true;
+                                        pendingHitPos = solidHitPos;
+                                        pendingHitNormal = solidHitNormal;
+                                        pendingHitColor = solidHitVoxel;
+                                        ro = pendingHitPos;
+                                        rd = refr;
+                                    } else {
+                                        ro = curPosIn + outNorm * 0.003 + refrOut * 0.002;
+                                        rd = refrOut;
+                                    }
                                 } else {
                                     if (!foundSolidPrimary) {
                                         primaryHitDist = totalRayDist;
@@ -12769,10 +12719,270 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
                                     rd = cosineWeightedHemisphere(N, seed);
                                     throughput *= albedo;
                                 }
-								///////////////////////////////////////
-								////////////////////
-								/////////
-                           } else {
+                            } else if (isMetal) {
+                                vec3 N = (dot(rd, hitNormal) < 0.0) ? hitNormal : -hitNormal;
+                                float cosThetaI = clamp(dot(-rd, N), 0.0, 1.0);
+                                float mOmc = 1.0 - cosThetaI;
+                                float mOmc5 = (mOmc * mOmc) * (mOmc * mOmc) * mOmc;
+                                float fDiel = F0_diel + (1.0 - F0_diel) * mOmc5;
+                                vec3 F0_metal = mix(vec3(F0_diel), albedo, metalMetallic);
+                                vec3 F_metal = F0_metal + (vec3(1.0) - F0_metal) * mOmc5;
+                                float specProb = clamp(mix(fDiel, 1.0, metalMetallic), 0.02, 1.0);
+
+                                if (rand(seed) < specProb) {
+                                    if (!foundSolidPrimary) {
+                                        primaryHitDist = totalRayDist;
+                                        foundSolidPrimary = true;
+                                    }
+                                    vec3 pureReflect = reflect(rd, N);
+                                    if (metalRough > 0.002) {
+                                        vec3 jitter = sampleSphere(seed);
+                                        if (dot(jitter, N) < 0.0) jitter = -jitter;
+                                        vec3 roughReflect = normalize(pureReflect + jitter * (metalRough * metalRough * 0.75));
+                                        rd = (dot(roughReflect, N) > 0.001) ? roughReflect : pureReflect;
+                                    } else {
+                                        rd = pureReflect;
+                                    }
+                                    if (metalRough > 0.25) isSpecularPath = false;
+                                    ro = hitPos + N * 0.002;
+                                    throughput *= F_metal / max(specProb, 0.05);
+                                } else {
+                                    if (!foundSolidPrimary) {
+                                        primaryHitDist = totalRayDist;
+                                        foundSolidPrimary = true;
+                                    }
+                                    isSpecularPath = false;
+                                    ro = hitPos + N * 0.002;
+                                    rd = cosineWeightedHemisphere(N, seed);
+                                    throughput *= albedo;
+                                }
+                            } else if (isBlend) {
+                                float transparency = matTrans;
+                                float roughness = matRough;
+                                float ior = max(1.0, matIOR);
+                                float metal = matMetallic;
+                                float spec = matSpecular;
+
+                                vec3 N = (dot(rd, hitNormal) < 0.0) ? hitNormal : -hitNormal;
+                                float cosThetaI = clamp(dot(-rd, N), 0.0, 1.0);
+                                float sinThetaTSq = (1.0 / (ior * ior)) * (1.0 - cosThetaI * cosThetaI);
+                                float fDiel = 0.0;
+                                if (ior > 1.0005) {
+                                    if (sinThetaTSq >= 1.0) {
+                                        fDiel = 1.0;
+                                    } else {
+                                        float cosThetaT = sqrt(max(0.0, 1.0 - sinThetaTSq));
+                                        float Rs = (cosThetaI - ior * cosThetaT) / max(0.0001, cosThetaI + ior * cosThetaT);
+                                        float Rp = (ior * cosThetaI - cosThetaT) / max(0.0001, ior * cosThetaI + cosThetaT);
+                                        fDiel = clamp(0.5 * (Rs * Rs + Rp * Rp) * spec, 0.0, 1.0);
+                                    }
+                                }
+                                float fresnel = mix(fDiel, 1.0, metal);
+
+                                if (rand(seed) < fresnel) {
+                                    if (!foundSolidPrimary) {
+                                        primaryHitDist = totalRayDist;
+                                        foundSolidPrimary = true;
+                                    }
+                                    vec3 refl = reflect(rd, N);
+                                    if (roughness > 0.001) {
+                                        vec3 roughRefl = normalize(refl + sampleSphere(seed) * (roughness * roughness * 0.65));
+                                        if (dot(roughRefl, N) > 0.001) refl = roughRefl;
+                                    }
+                                    if (roughness > 0.25) isSpecularPath = false;
+                                    ro = hitPos + N * 0.002;
+                                    rd = refl;
+                                    if (metal > 0.01) {
+                                        float bOmc = 1.0 - cosThetaI;
+                                        float bOmc5 = (bOmc * bOmc) * (bOmc * bOmc) * bOmc;
+                                        vec3 F0_b = mix(vec3(F0_diel), albedo, metal);
+                                        throughput *= F0_b + (vec3(1.0) - F0_b) * bOmc5;
+                                    }
+                                } else if (transparency > 0.005 && (transparency >= 0.5 || rand(seed) < transparency)) {
+                                    vec3 refr = (ior <= 1.0005) ? rd : refract(rd, N, 1.0 / ior);
+                                    if (dot(refr, refr) < 0.0001) refr = reflect(rd, N);
+                                    if (roughness > 0.001) {
+                                        vec3 roughRefr = normalize(refr + sampleSphere(seed) * (roughness * roughness * 0.25));
+                                        if (dot(roughRefr, -N) > 0.001) refr = roughRefr;
+                                    }
+                                    if (roughness > 0.25) isSpecularPath = false;
+
+                                    int curBlendIdx = matIdx;
+                                    vec3 curSrgb = hitColor.rgb;
+                                    vec3 curAlbedo = albedo;
+                                    float curDensityNorm = clamp(matDensity / 100.0, 0.0, 1.0);
+                                    vec3 blendTransAcc = vec3((transparency >= 0.5) ? transparency : 1.0);
+
+                                    vec3 curPosIn = hitPos - N * 0.002;
+                                    vec3 boxMinIn = vec3(-uGridSize.x * 0.5, 0.0, -uGridSize.y * 0.5);
+                                    vec3 localPosIn = vec3(curPosIn.x - boxMinIn.x, curPosIn.z - boxMinIn.z, curPosIn.y - boxMinIn.y);
+                                    ivec3 mapPosIn = clamp(ivec3(floor(localPosIn)), ivec3(0), gridDims - ivec3(1));
+
+                                    vec3 rdGridIn = vec3(refr.x, refr.z, refr.y);
+                                    vec3 deltaDistIn = abs(vec3(1.0) / max(abs(rdGridIn), vec3(0.00001)));
+                                    vec3 raySignIn = sign(rdGridIn);
+                                    raySignIn = vec3(raySignIn.x == 0.0 ? 1.0 : raySignIn.x, raySignIn.y == 0.0 ? 1.0 : raySignIn.y, raySignIn.z == 0.0 ? 1.0 : raySignIn.z);
+                                    ivec3 rayStepIn = ivec3(raySignIn);
+                                    vec3 sideDistIn = (raySignIn * (vec3(mapPosIn) - localPosIn) + (raySignIn * 0.5) + 0.5) * deltaDistIn;
+
+                                    vec3 lastMask = abs(vec3(N.x, N.z, N.y));
+                                    float dBlend = 0.0;
+                                    int internalBounces = 0;
+                                    vec3 outNorm = -N;
+                                    vec3 refrOut = rd;
+                                    bool hitFloorInside = false;
+                                    bool hitSolidInside = false;
+                                    vec4 solidHitVoxel = vec4(0.0);
+                                    vec3 solidHitNormal = vec3(0.0, 1.0, 0.0);
+                                    vec3 solidHitPos = vec3(0.0);
+
+                                    int maxBlendSteps = min(160, max(gridDims.x, max(gridDims.y, gridDims.z)) + 32);
+                                    for (int s = 0; s < maxBlendSteps; s++) {
+                                        vec3 maskIn = step(sideDistIn.xyz, sideDistIn.yzx) * step(sideDistIn.xyz, sideDistIn.zxy);
+                                        float minS = min(min(sideDistIn.x, sideDistIn.y), sideDistIn.z);
+                                        float dtStep = max(0.0, minS);
+
+                                        if (uShowFloorPlane > 0.5 && refr.y < -0.0001 && curPosIn.y > 0.0) {
+                                            float tFl = -curPosIn.y / refr.y;
+                                            if (tFl >= 0.0 && tFl <= dtStep + 0.0005) {
+                                                blendTransAcc *= evalGlassSegmentTransmittance(curSrgb, tFl, curDensityNorm);
+                                                dBlend += tFl;
+                                                curPosIn += refr * tFl;
+                                                hitFloorInside = true;
+                                                break;
+                                            }
+                                        }
+
+                                        blendTransAcc *= evalGlassSegmentTransmittance(curSrgb, dtStep, curDensityNorm);
+                                        dBlend += dtStep;
+                                        curPosIn += refr * dtStep;
+                                        sideDistIn -= vec3(dtStep);
+
+                                        ivec3 nextMapPos = mapPosIn + ivec3(maskIn) * rayStepIn;
+                                        vec3 stepG = vec3(float(rayStepIn.x), float(rayStepIn.y), float(rayStepIn.z));
+                                        vec3 nG = maskIn * stepG;
+                                        vec3 stepNorm = normalize(vec3(nG.x, nG.z, nG.y));
+
+                                        if (nextMapPos.z < 0 && uShowFloorPlane > 0.5 && refr.y < 0.0) {
+                                            hitFloorInside = true;
+                                            break;
+                                        }
+
+                                        bool nextIsBlend = false;
+                                        if (nextMapPos.x >= 0 && nextMapPos.x < gridDims.x &&
+                                            nextMapPos.y >= 0 && nextMapPos.y < gridDims.y &&
+                                            nextMapPos.z >= 0 && nextMapPos.z < gridDims.z) {
+                                            vec4 vNext = texelFetch(tVoxelGrid, nextMapPos, 0);
+                                            if (vNext.a > 0.002) {
+                                                int nextIdx = int(floor(vNext.a * 255.0 + 0.5));
+                                                if (nextIdx == curBlendIdx) {
+                                                    nextIsBlend = true;
+                                                } else {
+                                                    vec4 m0Next = texelFetch(tMaterialLUT, ivec2(nextIdx, 0), 0);
+                                                    if (m0Next.r > 3.5 && m0Next.r < 4.5) {
+                                                        nextIsBlend = true;
+                                                        curBlendIdx = nextIdx;
+                                                        curSrgb = vNext.rgb;
+                                                        curAlbedo = pow(vNext.rgb, vec3(2.2));
+                                                        curDensityNorm = clamp(texelFetch(tMaterialLUT, ivec2(nextIdx, 1), 0).r / 100.0, 0.0, 1.0);
+                                                    } else if (m0Next.r < 1.5 || m0Next.r > 4.5) {
+                                                        hitSolidInside = true;
+                                                        solidHitVoxel = vNext;
+                                                        solidHitNormal = -stepNorm;
+                                                        solidHitPos = curPosIn - stepNorm * 0.002;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (nextIsBlend) {
+                                            mapPosIn = nextMapPos;
+                                            sideDistIn += maskIn * deltaDistIn;
+                                            lastMask = maskIn;
+                                        } else {
+                                            outNorm = stepNorm;
+                                            if (ior <= 1.0005) {
+                                                refrOut = refr;
+                                                break;
+                                            }
+
+                                            float cosIn = clamp(dot(-refr, -outNorm), 0.0, 1.0);
+                                            float sinOutSq = (ior * ior) * (1.0 - cosIn * cosIn);
+                                            float tirFresnel = 0.0;
+                                            if (sinOutSq >= 1.0) {
+                                                tirFresnel = 1.0;
+                                            } else {
+                                                float cosOut = sqrt(max(0.0, 1.0 - sinOutSq));
+                                                float RsOut = (ior * cosIn - cosOut) / max(0.0001, ior * cosIn + cosOut);
+                                                float RpOut = (cosIn - ior * cosOut) / max(0.0001, cosIn + ior * cosOut);
+                                                tirFresnel = clamp(0.5 * (RsOut * RsOut + RpOut * RpOut), 0.0, 1.0);
+                                            }
+
+                                            if ((tirFresnel >= 0.999 || rand(seed) < tirFresnel) && internalBounces < 6) {
+                                                internalBounces++;
+                                                refr = reflect(refr, -outNorm);
+                                                if (roughness > 0.001) {
+                                                    vec3 rRefl = normalize(refr + sampleSphere(seed) * (roughness * roughness * 0.25));
+                                                    if (dot(rRefl, -outNorm) > 0.001) refr = rRefl;
+                                                }
+                                                curPosIn -= outNorm * 0.001;
+                                                rdGridIn = vec3(refr.x, refr.z, refr.y);
+                                                deltaDistIn = abs(vec3(1.0) / max(abs(rdGridIn), vec3(0.00001)));
+                                                raySignIn = sign(rdGridIn);
+                                                raySignIn = vec3(raySignIn.x == 0.0 ? 1.0 : raySignIn.x, raySignIn.y == 0.0 ? 1.0 : raySignIn.y, raySignIn.z == 0.0 ? 1.0 : raySignIn.z);
+                                                rayStepIn = ivec3(raySignIn);
+                                                localPosIn = vec3(curPosIn.x - boxMinIn.x, curPosIn.z - boxMinIn.z, curPosIn.y - boxMinIn.y);
+                                                sideDistIn = (raySignIn * (vec3(mapPosIn) - localPosIn) + (raySignIn * 0.5) + 0.5) * deltaDistIn;
+                                                lastMask = maskIn;
+                                            } else {
+                                                vec3 candidateOut = refract(refr, -outNorm, ior);
+                                                refrOut = (dot(candidateOut, candidateOut) < 0.0001) ? refr : normalize(candidateOut);
+                                                if (roughness > 0.001) {
+                                                    vec3 rOut = normalize(refrOut + sampleSphere(seed) * (roughness * roughness * 0.20));
+                                                    if (dot(rOut, outNorm) > 0.001) refrOut = rOut;
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    throughput *= blendTransAcc;
+                                    if (bounce == 0) {
+                                        postFirstGlassThroughput = throughput;
+                                    }
+                                    totalRayDist += dBlend;
+
+                                    if (hitFloorInside) {
+                                        hasPendingHit = true;
+                                        pendingHitPos = vec3(curPosIn.x, 0.002, curPosIn.z);
+                                        pendingHitNormal = vec3(0.0, 1.0, 0.0);
+                                        vec3 floorBaseCol = (uSkyEnabled > 0.5) ? uSkyGround : vec3(0.08, 0.08, 0.09);
+                                        pendingHitColor = vec4(floorBaseCol, 0.0);
+                                        ro = pendingHitPos;
+                                        rd = refr;
+                                    } else if (hitSolidInside) {
+                                        hasPendingHit = true;
+                                        pendingHitPos = solidHitPos;
+                                        pendingHitNormal = solidHitNormal;
+                                        pendingHitColor = solidHitVoxel;
+                                        ro = pendingHitPos;
+                                        rd = refr;
+                                    } else {
+                                        ro = curPosIn + outNorm * 0.003 + refrOut * 0.002;
+                                        rd = refrOut;
+                                    }
+                                } else {
+                                    if (!foundSolidPrimary) {
+                                        primaryHitDist = totalRayDist;
+                                        foundSolidPrimary = true;
+                                    }
+                                    isSpecularPath = false;
+                                    ro = hitPos + N * 0.002;
+                                    rd = cosineWeightedHemisphere(N, seed);
+                                    throughput *= albedo;
+                                }
+                            } else {
                                 if (!foundSolidPrimary) {
                                     primaryHitDist = totalRayDist;
                                     foundSolidPrimary = true;
@@ -13170,10 +13380,8 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
     function schedulePathTracePrewarmWithProgress() {
         if (!AppState.renderer || AppState.isWarmingUpPt) return;
 
+        // Nếu GPU đã được nạp ấm từ trước (ví dụ khi mở file .vox thứ 2), chỉ cần build sẵn 3D Texture ngầm
         if (AppState.isPtGpuWarm) {
-            if (AppState.isBootWarmupCube && typeof expandBootCubeToDefaultPreview === 'function') {
-                expandBootCubeToDefaultPreview();
-            }
             updateBootProgress(100, "Ready!", true);
             setTimeout(() => {
                 if (AppState.renderMode === 'preview' && AppState.needsVoxelTextureUpdate) {
@@ -13185,34 +13393,42 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
         }
 
         AppState.isWarmingUpPt = true;
-        const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+        const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 16)));
 
         (async () => {
             try {
-                updateBootProgress(20, "Initializing 1x1x1 Warm-up Grid...");
+                updateBootProgress(18, "Loading 3D Voxel Workspace...");
                 await nextFrame();
 
                 // Bước 1: Tạo RenderTargets và khởi tạo cấu trúc Shader P-Tracing + Post-Processing
-                updateBootProgress(42, "Allocating GPU Render Targets...");
+                updateBootProgress(38, "Allocating GPU Render Targets...");
                 await nextFrame();
                 const rw = Math.max(64, Math.min(4096, AppState.resolutionWidth || 800));
                 const rh = Math.max(64, Math.min(4096, AppState.resolutionHeight || 800));
                 initPingPongTargets(rw, rh);
 
-                // Bước 2: Tính 3D Texture siêu nhẹ trên lưới 1x1x1 lúc khởi động (mất < 0.5ms)
-                updateBootProgress(64, "Warming up 1x1x1 Voxel Pipeline...");
+                // Bước 2: Tạo Material LUT & 3D Distance Field Texture thực tế của mô hình hiện tại
+                updateBootProgress(58, "Building 3D Voxel Distance Field...");
                 await nextFrame();
                 updateVoxel3DTexture(true);
+                AppState.needsVoxelTextureUpdate = false;
 
-                // Bước 3: Biên dịch song song trên GPU (KHR_parallel_shader_compile)
-                updateBootProgress(82, "Compiling Path-Tracing GLSL3 Shaders...");
+                // Đồng bộ cả cụm đèn Emit để lần đầu bấm P-Tracing không phải quét lại
+                const prevMode = AppState.renderMode;
+                AppState.renderMode = 'pathtrace';
+                updateDynamicEmitLights();
+                AppState.needsEmitLightUpdate = false;
+                AppState.renderMode = prevMode;
+
+                // Bước 3: Biên dịch bất đồng bộ (KHR_parallel_shader_compile) cho cả PathTrace & Display Shader
+                updateBootProgress(78, "Compiling Path-Tracing GLSL3 Shaders...");
                 await nextFrame();
                 if (pathTraceMaterial && AppState.displayMaterial) {
                     pathTraceMaterial.uniforms.tVoxelGrid.value = voxel3DTexture;
                     pathTraceMaterial.uniforms.tMaterialLUT.value = materialLUTTexture;
                     pathTraceMaterial.uniforms.tAccum.value = AppState.renderTargetA.texture;
                     pathTraceMaterial.uniforms.uInteractiveMode.value = 1.0;
-                    pathTraceMaterial.uniforms.uMaxBounces.value = 2;
+                    pathTraceMaterial.uniforms.uMaxBounces.value = 3;
                     AppState.displayMaterial.uniforms.tInput.value = AppState.renderTargetInteractive.texture;
 
                     if (typeof AppState.renderer.compileAsync === 'function') {
@@ -13223,8 +13439,8 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
                     }
                 }
 
-                // Bước 4: Vẽ nháp 1x1 pixel với lưới 1x1x1 để GPU liên kết hoàn tất Pipeline State Object
-                updateBootProgress(94, "Finalizing GPU State & Expanding to 20x20x20...");
+                // Bước 4: Vẽ nháp 1x1 pixel lên RenderTarget để ép Driver GPU hoàn tất 100% liên kết trạng thái (Pipeline State Object)
+                updateBootProgress(94, "Warming up GPU Ray-Tracing Pipeline...");
                 await nextFrame();
                 if (AppState.renderer && pathTraceScene && AppState.displaySceneQuad && AppState.renderTargetInteractive) {
                     const prevTarget = AppState.renderer.getRenderTarget();
@@ -13245,27 +13461,11 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
                     pathTraceMaterial.uniforms.uMaxBounces.value = 4;
                 }
 
-                // Bước 5: Chuyển khối 1x1x1 sang kích thước mặc định 20x20x20 ngay khi vào Preview
-                if (AppState.isBootWarmupCube && typeof expandBootCubeToDefaultPreview === 'function') {
-                    expandBootCubeToDefaultPreview();
-                }
-
                 AppState.isPtGpuWarm = true;
                 AppState.ptShaderPrecompiled = true;
                 updateBootProgress(100, "Engine Ready!", true);
-
-                // Cập nhật ngầm 3D Texture của khối 20x20x20 sau khi màn hình đã mở hoàn toàn
-                setTimeout(() => {
-                    if (AppState.renderMode === 'preview' && AppState.needsVoxelTextureUpdate) {
-                        updateVoxel3DTexture(true);
-                        AppState.needsVoxelTextureUpdate = false;
-                    }
-                }, 100);
             } catch (err) {
                 console.warn("Shader prewarm warning:", err);
-                if (AppState.isBootWarmupCube && typeof expandBootCubeToDefaultPreview === 'function') {
-                    expandBootCubeToDefaultPreview();
-                }
                 updateBootProgress(100, "Ready!", true);
             } finally {
                 AppState.isWarmingUpPt = false;
@@ -14062,10 +14262,28 @@ function bindUndoableInput(element, onInputCallback, onCommitCallback = null) {
 
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) executeRedo();
+            else executeUndo();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            executeRedo();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
             e.preventDefault();
             executeSaveProject();
         }
+    });
+
+    ['btn-undo', 'btn-tool-undo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', executeUndo);
+    });
+
+    ['btn-redo', 'btn-tool-redo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', executeRedo);
     });
 
     document.getElementById('btn-download-vox').addEventListener('click', () => {
